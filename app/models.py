@@ -28,6 +28,7 @@ class Match(BaseModel):
     status: MatchStatus
     bank_id: str | None = None
     ledger_id: str | None = None
+    ledger_ids: list[str] = []
     score: float = 0.0
 
 
