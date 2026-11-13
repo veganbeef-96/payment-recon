@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
@@ -15,7 +16,7 @@ CREATE TABLE IF NOT EXISTS runs (
 
 
 def db_path() -> Path:
-    return Path(DEFAULT_DB_PATH)
+    return Path(os.environ.get("PAYMENT_RECON_DB") or DEFAULT_DB_PATH)
 
 
 def connect() -> sqlite3.Connection:
