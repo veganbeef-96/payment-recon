@@ -1,5 +1,7 @@
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
+from app import db
 from app.csv_import import parse_csv
 from app.matcher import reconcile
 from app.models import ReconciliationReport, Source
@@ -22,9 +24,14 @@ def health() -> dict[str, str]:
 
 @app.post("/reconcile", response_model=ReconciliationReport)
 async def reconcile_files(
+    response: Response,
     bank: UploadFile = File(..., description="Bank statement CSV"),
     ledger: UploadFile = File(..., description="Ledger export CSV"),
 ) -> ReconciliationReport:
     bank_rows = await _read_upload(bank, Source.BANK)
     ledger_rows = await _read_upload(ledger, Source.LEDGER)
-    return reconcile(bank_rows, ledger_rows)
+    report = reconcile(bank_rows, ledger_rows)
+    # sqlite3 is blocking, so keep the write off the event loop.
+    run_id = await run_in_threadpool(db.save_run, report.model_dump_json())
+    response.headers["X-Run-Id"] = str(run_id)
+    return report

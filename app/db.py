@@ -1,4 +1,6 @@
 import sqlite3
+from contextlib import closing
+from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_DB_PATH = "data/recon.db"
@@ -24,3 +26,13 @@ def connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute(SCHEMA)
     return conn
+
+
+def save_run(report_json: str) -> int:
+    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with closing(connect()) as conn, conn:
+        cur = conn.execute(
+            "INSERT INTO runs (created_at, report_json) VALUES (?, ?)",
+            (created_at, report_json),
+        )
+        return cur.lastrowid
