@@ -1,5 +1,7 @@
 import csv
 import io
+import re
+import unicodedata
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -9,9 +11,37 @@ BASE_COLUMNS = {"id", "posted_on"}
 DEBIT_CREDIT_COLUMNS = {"debit", "credit"}
 
 
+CURRENCY_CODE = re.compile(r"^[A-Z]{3}(?=[\s\d+-])|(?<=[\s\d])[A-Z]{3}$")
+NUMBER = re.compile(r"^[+-]?\d[\d.,]*$")
+
+
+def _normalize_number(text: str) -> str:
+    # Drop currency symbols/codes and spaces, e.g. "$1,234.50", "1 234,50 EUR".
+    text = CURRENCY_CODE.sub("", text.strip())
+    text = "".join(c for c in text if unicodedata.category(c) != "Sc" and not c.isspace())
+    if not NUMBER.match(text):
+        raise InvalidOperation
+
+    sign = text[0] if text[0] in "+-" else ""
+    digits = text.lstrip("+-")
+    if "," in digits and "." in digits:
+        # Whichever separator comes last is the decimal point.
+        decimal_sep = "," if digits.rfind(",") > digits.rfind(".") else "."
+    elif digits.count(",") == 1 and len(digits.split(",")[1]) != 3:
+        decimal_sep = ","
+    elif digits.count(".") == 1:
+        decimal_sep = "."
+    else:
+        decimal_sep = ""  # only thousands separators, e.g. "1,234" or "1.234.567"
+
+    thousands_sep = {",", "."} - {decimal_sep}
+    digits = "".join(c for c in digits if c not in thousands_sep)
+    return sign + digits.replace(",", ".")
+
+
 def _parse_amount(value: str, column: str) -> Decimal:
     try:
-        return Decimal(value)
+        return Decimal(_normalize_number(value))
     except InvalidOperation:
         raise ValueError(f"invalid {column} {value!r}") from None
 
