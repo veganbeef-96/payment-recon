@@ -5,8 +5,10 @@ from app import db
 from app.csv_import import parse_csv
 from app.matcher import reconcile
 from app.models import ReconciliationReport, Source
+from app.store_routes import router as store_router
 
 app = FastAPI(title="payment-recon")
+app.include_router(store_router)
 
 
 async def _read_upload(upload: UploadFile, source: Source):

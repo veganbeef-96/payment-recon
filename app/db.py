@@ -36,3 +36,17 @@ def save_run(report_json: str) -> int:
             (created_at, report_json),
         )
         return cur.lastrowid
+
+
+def list_runs(limit: int = 20) -> list[sqlite3.Row]:
+    with closing(connect()) as conn:
+        return conn.execute(
+            "SELECT id, created_at FROM runs ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+
+
+def get_run(run_id: int) -> sqlite3.Row | None:
+    with closing(connect()) as conn:
+        return conn.execute(
+            "SELECT id, created_at, report_json FROM runs WHERE id = ?", (run_id,)
+        ).fetchone()
