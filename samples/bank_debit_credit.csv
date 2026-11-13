@@ -1,0 +1,5 @@
+id,posted_on,description,debit,credit,reference
+b1,2026-11-02,Supplier payment,$120.00,,INV-1001
+b2,2026-11-03,Card purchase,$45.50,,POS-SHOP
+b3,2026-11-05,Salary run,,"$2,500.00",PAYROLL-NOV
+b4,2026-11-07,Software subscription,$99.00,,SAAS-SUB
