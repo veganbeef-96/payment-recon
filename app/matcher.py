@@ -1,16 +1,30 @@
+from decimal import Decimal
+
 from app.models import Match, MatchStatus, ReconciliationReport, Transaction
 from app.rules import DEFAULT_RULES, MatchRules
 
 
+def _amount_penalty(bank_amount: Decimal, ledger_amount: Decimal, rules: MatchRules) -> float | None:
+    """Return 0..0.1 penalty for an amount difference, or None if out of tolerance."""
+    if bank_amount == ledger_amount:
+        return 0.0
+    diff = abs(bank_amount - ledger_amount)
+    # Never pair a debit with a credit, however small the difference.
+    if diff > rules.amount_tolerance or (bank_amount < 0) != (ledger_amount < 0):
+        return None
+    return 0.1 * float(diff / rules.amount_tolerance)
+
+
 def _score(bank: Transaction, ledger: Transaction, rules: MatchRules) -> float:
-    if bank.amount != ledger.amount:
+    penalty = _amount_penalty(bank.amount, ledger.amount, rules)
+    if penalty is None:
         return 0.0
     gap = abs((bank.posted_on - ledger.posted_on).days)
     if gap > rules.date_tolerance_days:
         return 0.0
     date_part = 1.0 - gap / (rules.date_tolerance_days + 1)
     ref_part = rules.ref_bonus if bank.reference and bank.reference == ledger.reference else 0.0
-    return min(1.0, 0.8 * date_part + ref_part)
+    return max(0.0, min(1.0, 0.8 * date_part + ref_part) - penalty)
 
 
 def reconcile(
