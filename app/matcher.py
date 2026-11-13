@@ -1,23 +1,25 @@
 from app.models import Match, MatchStatus, ReconciliationReport, Transaction
-
-# Bank and ledger entries match when amounts are equal and dates are close.
-DATE_TOLERANCE_DAYS = 2
+from app.rules import DEFAULT_RULES, MatchRules
 
 
-def _score(bank: Transaction, ledger: Transaction) -> float:
+def _score(bank: Transaction, ledger: Transaction, rules: MatchRules) -> float:
     if bank.amount != ledger.amount:
         return 0.0
     gap = abs((bank.posted_on - ledger.posted_on).days)
-    if gap > DATE_TOLERANCE_DAYS:
+    if gap > rules.date_tolerance_days:
         return 0.0
-    date_part = 1.0 - gap / (DATE_TOLERANCE_DAYS + 1)
-    ref_part = 0.2 if bank.reference and bank.reference == ledger.reference else 0.0
+    date_part = 1.0 - gap / (rules.date_tolerance_days + 1)
+    ref_part = rules.ref_bonus if bank.reference and bank.reference == ledger.reference else 0.0
     return min(1.0, 0.8 * date_part + ref_part)
 
 
-def reconcile(bank: list[Transaction], ledger: list[Transaction]) -> ReconciliationReport:
+def reconcile(
+    bank: list[Transaction],
+    ledger: list[Transaction],
+    rules: MatchRules = DEFAULT_RULES,
+) -> ReconciliationReport:
     pairs = sorted(
-        ((_score(b, l), b, l) for b in bank for l in ledger),
+        ((_score(b, l, rules), b, l) for b in bank for l in ledger),
         key=lambda p: p[0],
         reverse=True,
     )
